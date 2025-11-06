@@ -8,40 +8,6 @@ systemctl status monitor
 systemctl status monitor
 
 #=========================================================================================================================
-[🪖📩 (OPCIONAL) INSTALAR ANTIVIRUS]::
-# paquetes de Linux de utilización rápida y práctica (escaneres):
-# 💯 realizo la instalación de un antivirus para automatizar el escaner de archivos corruptos en el servidor
-
-# instalación antivirus Linux:
-## 👹 clamav::
-apt install clamav
-apt install clamav-freshclam
-# busco actualizaciones en la base de datos
-sudo freshclam
-# escaneo manualmente el sistema
-# clamscan -[parámetros] [ruta de carpeta]
-# sudo clamscan -r /
-sudo clamscan -r /home
-
-# 👹 formas de uso con clamav:
-# guardo un registro de archivos infectados
-sudo clamscan -l /ruta/al/archivo.txt -r /ruta/al/directorio
-
-# mandar archivo a cuarentena (para no causar daño al servidor):
-# sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio
-sudo clamscan --move=/path/to/quarantine -r /ruta/al/directorio -l /ruta/al/archivo.txt
-
-# borrar archivos maliciosos:
-# sudo clamscan --remove -r /ruta/al/directorio
-sudo clamscan --remove -r /ruta/al/directorio -l /ruta/al/archivo.txt
-
-# actualizar base de datos 
-sudo freshclam
-
-# lo que puedo hacer es un cron y un alias para que automatice el análisis de virus. 
-# 🆗
-
-#=========================================================================================================================
 [🪖📩 CONFIGURACIÓN INICIAL DE POSTFIX CON GMAIL PARA EL RESTO DE SCRIPTS]::
 vim /etc/postfix/main.cf
 --------------------------------------------------------------------------

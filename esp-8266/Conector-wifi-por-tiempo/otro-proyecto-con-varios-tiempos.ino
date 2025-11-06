@@ -25,7 +25,7 @@ void setup() {
       desconectarWiFi();
     }
     Serial.println("Entrando en modo de sueño profundo...");
-    ESP.deepSleep(3600000 * 1000 * 2); // Esperar 2 horas (en microsegundos)
+    ESP.deepSleep(3600 * 1000000 + 1800 * 1000000); // Esperar 01:00 horas + 00:30 minutos (en microsegundos)
   }
 }
 

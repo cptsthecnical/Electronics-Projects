@@ -103,7 +103,7 @@ void verificarHosts() {
 }
 
 void enviarCorreo() {
-  String subject = "📬 [ESP8266 · pING2] Reporte de estado de red";
+  String subject = "📬 [ESP8266] Reporte de pING2 en estado de red local";
   String message = "Estado de los hosts:\n\n";
 
   for (int i = 0; i < numHosts; i++) {

@@ -34,7 +34,7 @@ void loop() {
 }
 
 bool debeConectarse(int hora) {
-  return (hora == 10 || hora == 12 || hora == 16 || hora == 18 || hora == 20 || hora == 22);
+  return (hora == 10 || hora == 12 || hora == 14 || hora == 16 || hora == 18 || hora == 20 || hora == 22);
 }
 
 void conectarWiFi() {

@@ -36,6 +36,8 @@ const char* password = "TU_PASSWORD";
 // 5️⃣ 🔁 Pasadas esas 2 horas, el chip se reinicia automáticamente
 //     y repite todo el proceso desde el punto 1.
 
+// 🧠 He cambiado las dos horas progeramadas por 01:30 para que sea más fluido
+
 // ===== ARRAY DE HOSTS =====
 struct Host {
   const char* ip;
@@ -101,7 +103,7 @@ void verificarHosts() {
 }
 
 void enviarCorreo() {
-  String subject = "📬 [ESP8266] Reporte de estado de red";
+  String subject = "📬 [ESP8266 · pING2] Reporte de estado de red";
   String message = "Estado de los hosts:\n\n";
 
   for (int i = 0; i < numHosts; i++) {

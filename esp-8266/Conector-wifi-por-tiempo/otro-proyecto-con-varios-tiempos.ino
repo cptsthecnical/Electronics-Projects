@@ -16,21 +16,19 @@ void setup() {
   if (!rtc.isrunning()) {
     rtc.adjust(DateTime(2025, 1, 1, 0, 0, 0));  // Ajustar la fecha y hora inicial
   }
-
-  while (true) {
-    DateTime now = rtc.now();
-    if (debeConectarse(now.hour())) {
-      conectarWiFi();
-      realizarTrabajo();
-      desconectarWiFi();
-    }
-    Serial.println("Entrando en modo de sueño profundo...");
-    ESP.deepSleep(3600 * 1000000 + 1800 * 1000000); // Esperar 01:00 horas + 00:30 minutos (en microsegundos)
-  }
 }
 
 void loop() {
-  // El loop principal se queda vacío
+  DateTime now = rtc.now();
+  
+  if (debeConectarse(now.hour())) {
+    conectarWiFi();
+    realizarTrabajo();
+    desconectarWiFi();
+  }
+  
+  Serial.println("Entrando en modo de sueño profundo...");
+  ESP.deepSleep(3600 * 1000000 + 1800 * 1000000); // Esperar 01:30 horas (en microsegundos)
 }
 
 bool debeConectarse(int hora) {
@@ -40,10 +38,12 @@ bool debeConectarse(int hora) {
 void conectarWiFi() {
   WiFi.begin(ssid, password);
   Serial.print("Conectando al WiFi");
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+  
   Serial.println(" Conectado");
 }
 

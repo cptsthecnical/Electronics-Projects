@@ -100,7 +100,7 @@ void verificarHosts() {
     Serial.printf("%s (%s): %s\n",
       hosts[i].name,
       hosts[i].ip,
-      online ? "🟢 ONLINE" : "🔴 OFFLINE");
+      online ? "ONLINE" : "OFFLINE");
   }
 }
 

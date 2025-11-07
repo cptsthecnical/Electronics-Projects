@@ -31,12 +31,9 @@ const char* WIFI_PASSWORD = "TU_PASSWORD";
 // 4️⃣ 😴 Tras confirmar el envío:
 //     - 🔕 Se desconecta completamente del WiFi con `WiFi.disconnect(true)`
 //       (esto apaga el chip de radio WiFi del ESP8266, 0 emisiones).
-//     - 🌙 Entra en modo de sueño profundo durante 2 horas
-//       con `ESP.deepSleep(2 * 60 * 60 * 1000000UL);`
-// 5️⃣ 🔁 Pasadas esas 2 horas, el chip se reinicia automáticamente
+//     - 🌙 Entra en modo de sueño profundo y se reinicia.
+// 5️⃣ 🔁 Pasadas esas horas, el chip se reinicia automáticamente
 //     y repite todo el proceso desde el punto 1.
-
-// 🧠 He cambiado las dos horas progeramadas por 01:30 para que sea más fluido
 
 // ===== ARRAY DE HOSTS =====
 struct Host {
@@ -57,8 +54,9 @@ Host hosts[] = {
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 
-// ===== OBJETO SMTP =====
-SMTPSession smtp;
+// === OBJETO SMTP (¡ELIMINADO GLOBALMENTE!) ===
+// Ya NO declaramos SMTPSession globalmente. Ahora se hace localmente
+// dentro de la función enviarCorreo() para garantizar un estado limpio.
 
 // ===== FUNCIONES =====
 void conectarWiFi() {
@@ -73,27 +71,8 @@ void conectarWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-/*
-void obtenerHoraNTP() {
-  configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
-  time_t now = time(nullptr);
-  int intentos = 0;
-  while (now < 1000000000 && intentos < 10) { // Esperar a sincronizar
-    delay(500);
-    now = time(nullptr);
-    intentos++;
-  }
-  if (now > 1000000000) {
-    Serial.println("🕒 Hora NTP sincronizada correctamente.");
-    Serial.println(ctime(&now));
-  } else {
-    Serial.println("⚠️ No se pudo obtener la hora NTP.");
-  }
-}
-*/
-
 void verificarHosts() {
-  Serial.println("🔍 Verificando estado de los hosts...");
+  Serial.println("🧐 Verificando estado de los hosts...");
   for (int i = 0; i < numHosts; i++) {
     bool online = Ping.ping(hosts[i].ip, 3);
     hosts[i].isUp = online;
@@ -104,7 +83,24 @@ void verificarHosts() {
   }
 }
 
+void obtenerInfoESP(String &message) {
+  message += "\n==============================================\n";
+  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n";
+  message += "Chip ID: " + String(ESP.getChipId()) + "\n";
+  message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
+  message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
+  message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
+  message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
+  message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
+  message += "Tiempo activo para ping: " + String(millis() / 60000.0, 1) + " min\n";
+  message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
+}
+
 void enviarCorreo() {
+  // === CAMBIO CRUCIAL: Declaramos SMTPSession localmente ===
+  // Esto garantiza que la sesión se inicialice correctamente en cada reinicio.
+  SMTPSession smtp;
+
   String subject = "📬 [ESP8266] Reporte de pING2 en estado de red local";
   String message = "\n==============================================\n";
   message += "\n🕒 [ESTADO DE LOS HOST LOCAL]\n";
@@ -130,41 +126,37 @@ void enviarCorreo() {
   session.login.password = AUTHOR_PASSWORD;
   session.secure.startTLS = true;
 
-  Serial.println("📧 Enviando correo...");
+  Serial.println("📧 Intentando conectar al servidor SMTP y enviar correo...");
   if (!smtp.connect(&session)) {
     Serial.println("❌ Error conectando al servidor SMTP.");
+    // Añadido para mejor depuración:
+    Serial.println("Razón del error: " + smtp.errorReason());
     return;
   }
 
+  // Usamos el objeto smtp local para enviar el correo
   if (!MailClient.sendMail(&smtp, &mail)) {
     Serial.println("❌ Error enviando correo: " + smtp.errorReason());
   } else {
     Serial.println("✅ Correo enviado correctamente.");
   }
 
-  smtp.closeSession();
-}
-
-void obtenerInfoESP(String &message) {
-  message += "\n==============================================\n";
-  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n";
-  message += "Chip ID: " + String(ESP.getChipId()) + "\n";
-  message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
-  message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
-  message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
-  message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
-  message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
-  message += "Tiempo activo para ping: " + String(millis() / 60000.0, 1) + " min\n";
-  message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
+  // La sesión se cerrará automáticamente, pero la cerramos explícitamente para limpiar.
+  smtp.closeSession(); 
 }
 
 void dormir2Horas() {
-  Serial.println("😴 Preparando para dormir 01:30 horas...");
+  const unsigned long tiempo_segundos = 90 * 60; // 90 minutos
+  const unsigned long tiempo_microsegundos = tiempo_segundos * 1000000UL;
+
+  Serial.printf("😴 Preparando para dormir %.2f horas (%lu segundos)...\n", 
+    tiempo_segundos / 3600.0, tiempo_segundos);
+
   WiFi.disconnect(true); // Apaga WiFi completamente
   delay(1000);
-  // ESP.deepSleep(2 * 60 * 60 * 1000000UL);  // 02:00 horas en microsegundos
-  // ESP.deepSleep(1 * 60 * 60 * 1000000UL);  // 01:00 horas en microsegundos
-  ESP.deepSleep(1.5 * 60 * 60 * 1000000UL);   // 01:30 horas en microsegundos
+  
+  // Usamos el valor calculado con aritmética de enteros para mayor robustez
+  ESP.deepSleep(tiempo_microsegundos);
 }
 
 void setup() {
@@ -173,7 +165,6 @@ void setup() {
   Serial.println("\n🚀 Iniciando ESP8266 Watcher...");
 
   conectarWiFi();
-  //obtenerHoraNTP();
   verificarHosts();
   enviarCorreo();
   dormir2Horas();

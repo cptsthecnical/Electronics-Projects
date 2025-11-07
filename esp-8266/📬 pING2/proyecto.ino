@@ -158,7 +158,9 @@ void dormir2Horas() {
   Serial.println("😴 Preparando para dormir 01:30 horas...");
   WiFi.disconnect(true); // Apaga WiFi completamente
   delay(1000);
-  ESP.deepSleep(1.5 * 60 * 60 * 1000000UL); // 01:30 en microsegundos
+  // ESP.deepSleep(2 * 60 * 60 * 1000000UL);  // 02:00 horas en microsegundos
+  // ESP.deepSleep(1 * 60 * 60 * 1000000UL);  // 01:00 horas en microsegundos
+  ESP.deepSleep(1.5 * 60 * 60 * 1000000UL);   // 01:30 horas en microsegundos
 }
 
 void setup() {

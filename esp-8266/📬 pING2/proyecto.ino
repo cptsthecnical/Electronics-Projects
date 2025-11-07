@@ -73,6 +73,7 @@ void conectarWiFi() {
   Serial.println(WiFi.localIP());
 }
 
+/*
 void obtenerHoraNTP() {
   configTime(3600, 0, "pool.ntp.org", "time.nist.gov");
   time_t now = time(nullptr);
@@ -89,6 +90,7 @@ void obtenerHoraNTP() {
     Serial.println("⚠️ No se pudo obtener la hora NTP.");
   }
 }
+*/
 
 void verificarHosts() {
   Serial.println("🔍 Verificando estado de los hosts...");
@@ -104,7 +106,8 @@ void verificarHosts() {
 
 void enviarCorreo() {
   String subject = "📬 [ESP8266] Reporte de pING2 en estado de red local";
-  String message = "Estado de los hosts:\n\n";
+  String message = "\n==============================================\n";
+  message += "\n🕒 [ESTADO DE LOS HOST LOCAL]\n";
 
   for (int i = 0; i < numHosts; i++) {
     message += String(hosts[i].name) + " (" + hosts[i].ip + "): " +
@@ -143,14 +146,15 @@ void enviarCorreo() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n\n📌 [INFORME DE SISTEMA ESP8266]\n";
+  message += "\n==============================================\n";
+  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n";
   message += "Chip ID: " + String(ESP.getChipId()) + "\n";
   message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
   message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
   message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
   message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
   message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
-  message += "Tiempo activo: " + String(millis() / 60000.0, 1) + " min\n";
+  message += "Tiempo activo para ping: " + String(millis() / 60000.0, 1) + " min\n";
   message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
@@ -169,7 +173,7 @@ void setup() {
   Serial.println("\n🚀 Iniciando ESP8266 Watcher...");
 
   conectarWiFi();
-  obtenerHoraNTP();
+  //obtenerHoraNTP();
   verificarHosts();
   enviarCorreo();
   dormir2Horas();

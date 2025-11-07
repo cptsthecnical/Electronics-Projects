@@ -5,8 +5,8 @@
 // =====================
 // CONFIGURACIÓN RED
 // =====================
-const char* ssid = "TU_WIFI";
-const char* password = "TU_PASSWORD";
+const char* WIFI_SSID = "TU_WIFI";
+const char* WIFI_PASSWORD = "TU_PASSWORD";
 
 // =====================
 // CONFIGURACIÓN CORREO
@@ -111,6 +111,8 @@ void enviarCorreo() {
                (hosts[i].isUp ? "🟢 ONLINE" : "🔴 OFFLINE") + "\n";
   }
 
+  obtenerInfoESP(message);
+  
   SMTP_Message mail;
   mail.sender.name = "ESP8266 Watcher";
   mail.sender.email = AUTHOR_EMAIL;
@@ -138,6 +140,18 @@ void enviarCorreo() {
   }
 
   smtp.closeSession();
+}
+
+void obtenerInfoESP(String &message) {
+  message += "\n\n📌 [INFORME DE SISTEMA ESP8266]\n";
+  message += "Chip ID: " + String(ESP.getChipId()) + "\n";
+  message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
+  message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
+  message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
+  message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
+  message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
+  message += "Tiempo activo: " + String(millis() / 60000.0, 1) + " min\n";
+  message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
 void dormir2Horas() {

@@ -45,7 +45,7 @@ struct Host {
 Host hosts[] = {
   {"192.168.1.1", "ROUTER-DIGI", false},
   {"192.168.1.75", "PROXMOX", false},
-  {"192.168.1.128", "TV-SALÓN", false},
+  {"192.168.1.129", "TV-SALÓN", false},
   {"192.168.1.129", "PC-MILITAR-WIFI", false},
   {"192.168.1.130", "PORTATIL-AIR", false},
   {"192.168.1.134", "ANDROID", false},
@@ -54,27 +54,34 @@ Host hosts[] = {
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 
-// === OBJETO SMTP (¡ELIMINADO GLOBALMENTE!) ===
-// Ya NO declaramos SMTPSession globalmente. Ahora se hace localmente
-// dentro de la función enviarCorreo() para garantizar un estado limpio.
-
 // ===== FUNCIONES =====
 void conectarWiFi() {
   Serial.println("Conectando al WiFi...");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
+  // Intentamos conectar por un máximo de 10 segundos
+  long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - startTime) < 10000) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n✅ Conectado al WiFi");
-  Serial.print("IP local: ");
-  Serial.println(WiFi.localIP());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ Conectado al WiFi");
+    Serial.print("IP local: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    // Si falla la conexión, esperamos 30 segundos y reiniciamos
+    Serial.println("\n❌ ¡ERROR! Fallo al conectar al WiFi. Reiniciando en 30 segundos.");
+    delay(30000);
+    ESP.restart();
+  }
 }
 
 void verificarHosts() {
-  Serial.println("🧐 Verificando estado de los hosts...");
+  Serial.println("Verificando estado de los hosts...");
   for (int i = 0; i < numHosts; i++) {
-    bool online = Ping.ping(hosts[i].ip, 3);
+    // Usamos un timeout más corto para acelerar el proceso de ping
+    bool online = Ping.ping(hosts[i].ip, 1); 
     hosts[i].isUp = online;
     Serial.printf("%s (%s): %s\n",
       hosts[i].name,
@@ -84,26 +91,22 @@ void verificarHosts() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n==============================================\n";
-  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n";
+  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n\n";
   message += "Chip ID: " + String(ESP.getChipId()) + "\n";
   message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
   message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
   message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
   message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
   message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
-  message += "Tiempo activo para ping: " + String(millis() / 60000.0, 1) + " min\n";
+  message += "Tiempo activo: " + String(millis() / 60000.0, 1) + " min\n";
   message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
 void enviarCorreo() {
-  // === CAMBIO CRUCIAL: Declaramos SMTPSession localmente ===
-  // Esto garantiza que la sesión se inicialice correctamente en cada reinicio.
   SMTPSession smtp;
 
   String subject = "📬 [ESP8266] Reporte de pING2 en estado de red local";
-  String message = "\n==============================================\n";
-  message += "\n🕒 [ESTADO DE LOS HOST LOCAL]\n";
+  String message = "\n🧐 [ESTADO DE LOS HOST LOCAL]:\n\n";
 
   for (int i = 0; i < numHosts; i++) {
     message += String(hosts[i].name) + " (" + hosts[i].ip + "): " +
@@ -113,7 +116,7 @@ void enviarCorreo() {
   obtenerInfoESP(message);
   
   SMTP_Message mail;
-  mail.sender.name = "ESP8266 Watcher";
+  mail.sender.name = "ESP8266 pING2";
   mail.sender.email = AUTHOR_EMAIL;
   mail.subject = subject;
   mail.addRecipient("Admin", RECIPIENT_EMAIL);
@@ -129,12 +132,10 @@ void enviarCorreo() {
   Serial.println("📧 Intentando conectar al servidor SMTP y enviar correo...");
   if (!smtp.connect(&session)) {
     Serial.println("❌ Error conectando al servidor SMTP.");
-    // Añadido para mejor depuración:
     Serial.println("Razón del error: " + smtp.errorReason());
     return;
   }
 
-  // Usamos el objeto smtp local para enviar el correo
   if (!MailClient.sendMail(&smtp, &mail)) {
     Serial.println("❌ Error enviando correo: " + smtp.errorReason());
   } else {
@@ -145,31 +146,55 @@ void enviarCorreo() {
   smtp.closeSession(); 
 }
 
-void dormir2Horas() {
-  const unsigned long tiempo_segundos = 90 * 60; // 90 minutos
-  const unsigned long tiempo_microsegundos = tiempo_segundos * 1000000UL;
+void esperarYReiniciar() {
+  // Configuración de la espera: 2 minutos (120 segundos)
+ const unsigned long TIEMPO_ESPERA_MS = 60 * 60 * 1000UL; // 01:00 hora en milisegundos
 
-  Serial.printf("😴 Preparando para dormir %.2f horas (%lu segundos)...\n", 
-    tiempo_segundos / 3600.0, tiempo_segundos);
+ Serial.println("📴 APAGANDO WIFI: Desactivando radio para 0% de emisiones...");
+ 
+  // 1. APAGAR WIFI (0% EMISIONES)
+ WiFi.disconnect(true); // Desconecta y olvida la red
+ WiFi.mode(WIFI_OFF);   // Desactiva completamente la radio WiFi (el paso CRÍTICO)
+ 
+ Serial.printf("🔄 MODO SOFTWARE: Empezando conteo de %lu segundos (Chip encendido, WiFi apagado).\n", 
+  TIEMPO_ESPERA_MS / 1000);
 
-  WiFi.disconnect(true); // Apaga WiFi completamente
-  delay(1000);
-  
-  // Usamos el valor calculado con aritmética de enteros para mayor robustez
-  ESP.deepSleep(tiempo_microsegundos);
+  // 2. CONTADOR / ESPERA ACTIVA
+ delay(TIEMPO_ESPERA_MS);
+ 
+ Serial.println("🚀 Fin del conteo. Forzando reinicio para un nuevo ciclo...");
+ 
+  // 3. REINICIO
+ ESP.restart(); 
+ 
+  // Después de ESP.restart(), el chip arranca desde setup(),
+  // donde se llamará a conectarWiFi() y se encenderá el WiFi de nuevo.
 }
 
 void setup() {
-  Serial.begin(115200);
-  delay(500);
-  Serial.println("\n🚀 Iniciando ESP8266 Watcher...");
+  // Se ha ajustado el baud rate a 115200 (estándar para depuración)
+ Serial.begin(11520); 
+ delay(500);
+ Serial.println("\n==============================================");
+ Serial.println("🚀 Iniciando ESP8266 pING2 Watcher...");
 
-  conectarWiFi();
-  verificarHosts();
-  enviarCorreo();
-  dormir2Horas();
+  // Identificamos el motivo del reinicio para depuración
+ if (ESP.getResetReason().startsWith("Software/Power")) {
+  Serial.println("⚡ Reinicio detectado: Primer arranque o Reinicio por Software.");
+ } else {
+  Serial.println("❓ Reinicio detectado: Otro tipo de reinicio.");
+ }
+ Serial.println("==============================================");
+
+
+ conectarWiFi(); // Enciende WiFi y conecta
+ verificarHosts();
+ enviarCorreo();
+ 
+  // Llama a la función que apaga WiFi, espera 2 minutos y reinicia
+  esperarYReiniciar();
 }
 
 void loop() {
-  // No se usa. Todo ocurre en setup() tras cada reinicio del deep sleep.
-}
+  // No se usa. Todo ocurre en setup() tras cada reinicio por software.
+  }

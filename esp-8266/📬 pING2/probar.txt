@@ -1,0 +1,181 @@
+# tengo que probar, sirve para escanear los puertos 
+
+# ---------------------------------------------------------------------------------
+#include <ESP8266WiFi.h>
+#include <ESP_Mail_Client.h>
+#include <ESP8266Ping.h>
+
+// =====================
+// CONFIGURACIÓN RED
+// =====================
+const char* WIFI_SSID = "TU_WIFI";
+const char* WIFI_PASSWORD = "TU_PASSWORD";
+
+// =====================
+// CONFIGURACIÓN CORREO
+// =====================
+#define SMTP_HOST "smtp.gmail.com"
+#define SMTP_PORT 587
+#define AUTHOR_EMAIL "TU_CORREO@gmail.com"
+#define AUTHOR_PASSWORD "TU_APP_PASSWORD"
+#define RECIPIENT_EMAIL "DESTINO@gmail.com"
+
+// ===== ARRAY DE HOSTS =====
+struct Host {
+  const char* ip;
+  const char* name;
+  bool isUp;
+};
+
+Host hosts[] = {
+  {"192.168.1.1", "ROUTER-DIGI", false},
+  {"192.168.1.75", "PROXMOX", false},
+  {"192.168.1.128", "TV-SALÓN", false},
+  {"192.168.1.129", "PC-MILITAR-WIFI", false},
+  {"192.168.1.130", "PORTATIL-AIR", false},
+  {"192.168.1.134", "ANDROID", false},
+  {"192.168.1.139", "TV-HABITACIÓN", false},
+  {"192.168.1.131", "IPHONE", false}
+};
+const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
+
+// ===== PUERTOS A ESCANEAR =====
+const uint16_t portsToCheck[] = {22, 23, 80, 443, 445, 3389};
+const int nPorts = sizeof(portsToCheck)/sizeof(portsToCheck[0]);
+
+// ===== OBJETO SMTP =====
+SMTPSession smtp;
+
+// ================= FUNCIONES =================
+void conectarWiFi() {
+  Serial.println("Conectando al WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n✅ Conectado al WiFi");
+  Serial.print("IP local: ");
+  Serial.println(WiFi.localIP());
+}
+
+// ===== VERIFICAR HOSTS DEFINIDOS =====
+void verificarHosts() {
+  Serial.println("🔍 Verificando estado de los hosts...");
+  for (int i = 0; i < numHosts; i++) {
+    bool online = Ping.ping(hosts[i].ip, 3);
+    hosts[i].isUp = online;
+    Serial.printf("%s (%s): %s\n",
+      hosts[i].name,
+      hosts[i].ip,
+      online ? "ONLINE" : "OFFLINE");
+  }
+}
+
+// ===== FUNCIONES PARA ESCANEO DE RED =====
+IPAddress getSubnetBase() {
+  IPAddress ip = WiFi.localIP();
+  return IPAddress(ip[0], ip[1], ip[2], 0); // /24
+}
+
+bool tcpPortOpen(IPAddress ip, uint16_t port, uint32_t timeout_ms=300) {
+  WiFiClient client;
+  return client.connect(ip, port); // connect rápido
+}
+
+String escanearRed() {
+  String resultado = "\n🔎 ESCANEO RÁPIDO DE RED Y PUERTOS COMUNES\n";
+  IPAddress base = getSubnetBase();
+  for (int host = 1; host < 255; host++) {
+    IPAddress target(base[0], base[1], base[2], host);
+    if (!Ping.ping(target, 1)) continue; // ICMP ping rápido
+    resultado += "Host activo: " + target.toString() + "\n";
+    for (int p = 0; p < nPorts; ++p) {
+      if (tcpPortOpen(target, portsToCheck[p])) {
+        resultado += "  Puerto " + String(portsToCheck[p]) + " -> OPEN\n";
+      }
+    }
+    delay(50);
+  }
+  return resultado;
+}
+
+// ===== INFORMACIÓN DEL ESP =====
+void obtenerInfoESP(String &message) {
+  message += "\n==============================================\n";
+  message += "\n⚠️ [INFORME DE SISTEMA ESP8266]\n";
+  message += "Chip ID: " + String(ESP.getChipId()) + "\n";
+  message += "Flash total: " + String(ESP.getFlashChipRealSize() / 1024) + " KB\n";
+  message += "Flash usado: " + String(ESP.getSketchSize() / 1024) + " KB\n";
+  message += "Flash libre: " + String((ESP.getFlashChipRealSize() - ESP.getSketchSize()) / 1024) + " KB\n";
+  message += "RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB\n";
+  message += "SDK: " + String(ESP.getSdkVersion()) + "\n";
+  message += "Tiempo activo para ping: " + String(millis() / 60000.0, 1) + " min\n";
+  message += "RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
+}
+
+// ===== ENVIAR CORREO =====
+void enviarCorreo() {
+  String subject = "📬 [ESP8266] Reporte de red local + escaneo de puertos";
+  String message = "\n==============================================\n";
+  message += "\n🕒 [ESTADO DE LOS HOST LOCAL]\n";
+  for (int i = 0; i < numHosts; i++) {
+    message += String(hosts[i].name) + " (" + hosts[i].ip + "): " +
+               (hosts[i].isUp ? "🟢 ONLINE" : "🔴 OFFLINE") + "\n";
+  }
+  
+  message += escanearRed(); // escaneo de subred
+  obtenerInfoESP(message);
+  
+  SMTP_Message mail;
+  mail.sender.name = "ESP8266 Watcher";
+  mail.sender.email = AUTHOR_EMAIL;
+  mail.subject = subject;
+  mail.addRecipient("Admin", RECIPIENT_EMAIL);
+  mail.text.content = message;
+
+  ESP_Mail_Session session;
+  session.server.host_name = SMTP_HOST;
+  session.server.port = SMTP_PORT;
+  session.login.email = AUTHOR_EMAIL;
+  session.login.password = AUTHOR_PASSWORD;
+  session.secure.startTLS = true;
+
+  Serial.println("📧 Enviando correo...");
+  if (!smtp.connect(&session)) {
+    Serial.println("❌ Error conectando al servidor SMTP.");
+    return;
+  }
+
+  if (!MailClient.sendMail(&smtp, &mail)) {
+    Serial.println("❌ Error enviando correo: " + smtp.errorReason());
+  } else {
+    Serial.println("✅ Correo enviado correctamente.");
+  }
+
+  smtp.closeSession();
+}
+
+// ===== MODO DEEP SLEEP =====
+void dormir2Horas() {
+  Serial.println("😴 Preparando para dormir 01:30 horas...");
+  WiFi.disconnect(true);
+  delay(1000);
+  ESP.deepSleep(1.5 * 60 * 60 * 1000000UL);
+}
+
+// ================== SETUP ==================
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n🚀 Iniciando ESP8266 Watcher...");
+
+  conectarWiFi();
+  verificarHosts();
+  enviarCorreo();
+  dormir2Horas();
+}
+
+void loop() {
+  // No se usa
+}

@@ -40,7 +40,7 @@ Host hosts[] = {
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 
 // ===== PUERTOS A ESCANEAR =====
-const uint16_t portsToCheck[] = {22, 23, 80, 443, 445, 3389};
+const uint16_t portsToCheck[] = {22, 23, 80, 443, 445, 3389}; // SSH, HTTP, HTTPS, NetBIOS/SMB, MQTT
 const int nPorts = sizeof(portsToCheck)/sizeof(portsToCheck[0]);
 
 // ===== OBJETO SMTP =====

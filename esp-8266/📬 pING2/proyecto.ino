@@ -18,22 +18,29 @@ const char* WIFI_PASSWORD = "TU_PASSWORD";
 #define RECIPIENT_EMAIL "DESTINO@gmail.com"
 
 //===== LÓGICA =========
-// 👍 Explicación general del comportamiento:
-//
-// 1️⃣ Al encenderse o despertarse del modo deep sleep:
-//     - 🔌 El ESP8266 arranca desde cero (como si lo conectaras por primera vez).
-//     - 🧠 Inicializa el sistema serie y las variables.
-//     - 📶 Se conecta al WiFi para tener conectividad.
-// 2️⃣ 📡 Realiza un ping a todos los dispositivos definidos en el array “hosts”
-//     y guarda si cada uno está ONLINE (responde al ping) u OFFLINE.
-// 3️⃣ 📧 Crea un correo con el reporte del estado de cada host
-//     y lo envía usando el servidor SMTP configurado (Gmail, etc.).
-// 4️⃣ 😴 Tras confirmar el envío:
-//     - 🔕 Se desconecta completamente del WiFi con `WiFi.disconnect(true)`
-//       (esto apaga el chip de radio WiFi del ESP8266, 0 emisiones).
-//     - 🌙 Entra en modo de sueño profundo y se reinicia.
-// 5️⃣ 🔁 Pasadas esas horas, el chip se reinicia automáticamente
-//     y repite todo el proceso desde el punto 1.
+// 1️⃣ Al iniciar el ESP8266:
+//     - 🔌 Arranca desde cero y se inicializa la comunicación serie.
+//     - 🧠 Se configuran las variables y el array de hosts a monitorizar.
+//     - 📶 Configura y conecta la red WiFi usando una IP estática definida
+//       (por ejemplo 192.168.1.254), con máscara, gateway y DNS opcionales.
+// 2️⃣ 📡 Verifica la disponibilidad de cada host:
+//     - Hace un ping a todos los dispositivos definidos en el array “hosts”.
+//     - Actualiza el estado `isUp` de cada host: ONLINE 🟢 si responde, OFFLINE 🔴 si no.
+// 3️⃣ 💾 Obtiene telemetría del ESP8266:
+//     - Chip ID, memoria flash, RAM libre, SDK, tiempo activo y nivel de señal WiFi.
+// 4️⃣ 📧 Crea y envía un correo con el reporte:
+//     - Incluye el estado de todos los hosts y la telemetría del dispositivo.
+//     - Se conecta al servidor SMTP configurado (Gmail u otro).
+//     - Envía el correo al destinatario definido.
+// 5️⃣ 🔕 Tras enviar el correo:
+//     - Se desconecta completamente del WiFi con `WiFi.disconnect(true)`.
+//     - Apaga el chip de radio WiFi con `WiFi.mode(WIFI_OFF)` y `WiFi.forceSleepBegin()`.
+//     - Se espera el tiempo definido (`TIEMPO_ESPERA`, por ejemplo 1 hora) antes del siguiente ciclo.
+// 6️⃣ 🔁 Al finalizar la espera:
+//     - Se repite el ciclo desde el punto 1, asegurando que la red, los hosts y la telemetría
+//       se revisen periódicamente y se envíen los reportes automáticamente.
+// 🧠 Nota: Se usa IP estática para garantizar que el ESP8266 tenga siempre la misma dirección
+//     en la red, facilitando reglas de firewall o monitoreo fijo de dispositivos.
 
 // ===== ARRAY DE HOSTS =====
 struct Host {
@@ -41,7 +48,7 @@ struct Host {
   const char* name;
   bool isUp;
 };
-
+// 192.168.1.255
 Host hosts[] = {
   {"192.168.1.1", "ROUTER-DIGI", false},
   {"192.168.1.2", "TV-SALÓN", false},
@@ -50,6 +57,7 @@ Host hosts[] = {
   {"192.168.1.5", "PROXMOX", false},
   {"192.168.1.6", "ANDROID-WIFI", false},
   {"192.168.1.7", "IPHONE-WIFI", false},
+  {"192.168.1.8", "PORTATIL-WINDOWS-WIFI", false},
   {"192.168.1.133", "TV-HABITACIÓN-WIFI", false}
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
@@ -57,13 +65,29 @@ const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 // ===== FUNCIONES =====
 void conectarWiFi() {
   Serial.println("Conectando al WiFi...");
+
+  // --- CONFIGURAR IP ESTÁTICA ---
+  IPAddress local_IP(192, 168, 1, 254);    // 🔹 IP fija que le asignas al ESP8266
+  IPAddress gateway(192, 168, 1, 1);       // 🔹 Puerta de enlace (normalmente tu router)
+  IPAddress subnet(255, 255, 255, 0);      // 🔹 Máscara de subred
+  IPAddress primaryDNS(8, 8, 8, 8);        // (opcional) DNS primario
+  IPAddress secondaryDNS(8, 8, 4, 4);      // (opcional) DNS secundario
+
+  // Configurar red con IP fija
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+    Serial.println("⚠️ Error al configurar IP estática");
+  }
+
+  // --- CONECTAR A LA RED ---
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("\n✅ Conectado al WiFi");
-  Serial.print("IP local: ");
+  Serial.print("IP local asignada: ");
   Serial.println(WiFi.localIP());
 }
 
@@ -89,8 +113,7 @@ void verificarHosts() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n🗂️ [INFORME DE SISTEMA ESP8266]:\n\n";
-  message += "Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
+  message += "\n\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
 void enviarCorreo() {

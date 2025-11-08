@@ -17,3 +17,7 @@ Elige:
 
 4️⃣ Cuarto paso
 Aplica y guarda.
+
+
+## en el caso de que no funcione o para hacerlo más rápidamente tambien pudeo lanzar este comando por powershell con permisso de administrador (cambia esa ip por la de la esp8266)
+New-NetFirewallRule -DisplayName "Permitir ping desde ESP8266" -Direction Inbound -Protocol ICMPv4 -Action Allow -RemoteAddress 192.168.1.254

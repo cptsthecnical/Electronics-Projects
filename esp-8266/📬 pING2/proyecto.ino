@@ -116,6 +116,16 @@ void obtenerInfoESP(String &message) {
   message += "\n\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
+void obtenerInfoMilitar(String &message) {
+  message += "\n🪖 [CONFLICTOS DE ESTADO]:\n";
+  message += "\nTrabajando para obtener estos datos...\n";
+}
+
+void obtenerInfoMeteorologicos(String &message) {
+  message += "\n🌩️ [ESTADÍSTICAS METEORLOGICAS]:\n";
+  message += "\nTrabajando para obtener estos datos...\n";
+}
+
 void enviarCorreo() {
   SMTPSession smtp;
 
@@ -127,6 +137,8 @@ void enviarCorreo() {
                (hosts[i].isUp ? "🟢 ONLINE" : "🔴 OFFLINE") + "\n";
   }
 
+  obtenerInfoMeteorologicos(message);
+  obtenerInfoMilitar(message);
   obtenerInfoESP(message);
   
   SMTP_Message mail;

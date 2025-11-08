@@ -127,6 +127,11 @@ void obtenerInfoMeteorologicos(String &message) {
   message += "\nTrabajando para obtener estos datos...\n";
 }
 
+void obtenerRiesgoApagon(String &message) {
+message += "\n⚡ [ÍNDICE DE RIESGO DE APAGÓN]:\n";
+  message += "\nTrabajando para obtener estos datos...\n";
+}
+
 void enviarCorreo() {
   SMTPSession smtp;
 
@@ -139,6 +144,7 @@ void enviarCorreo() {
   }
 
   obtenerInfoMeteorologicos(message);
+  obtenerRiesgoApagon(message);
   obtenerInfoMilitar(message);
   obtenerInfoESP(message);
   

@@ -1,18 +1,19 @@
-//===== LÓGICA =========
-// 👍 Explicación general del comportamiento:
-//
-// 1️⃣ Al encenderse o despertarse del modo deep sleep:
-//     - 🔌 El ESP8266 arranca desde cero (como si lo conectaras por primera vez).
-//     - 🧠 Inicializa el sistema serie y las variables.
-//     - 📶 Se conecta al WiFi para tener conectividad.
-// 2️⃣ 📡 Realiza un ping a todos los dispositivos definidos en el array “hosts”
-//     y guarda si cada uno está ONLINE (responde al ping) u OFFLINE.
-// 3️⃣ 📧 Crea un correo con el reporte del estado de cada host
-//     y lo envía usando el servidor SMTP configurado (Gmail, etc.).
-// 4️⃣ 😴 Tras confirmar el envío:
-//     - 🔕 Se desconecta completamente del WiFi con `WiFi.disconnect(true)`
-//       (esto apaga el chip de radio WiFi del ESP8266, 0 emisiones).
-//     - 🌙 Entra en modo de sueño profundo durante 2 horas
-//       con `ESP.deepSleep(2 * 60 * 60 * 1000000UL);`
-// 5️⃣ 🔁 Pasadas esas 2 horas, el chip se reinicia automáticamente
-//     y repite todo el proceso desde el punto 1.
+1️⃣ Primer paso:
+# Lo primero que tengo que hacer es asignar a todos los equipos una ip estática
+Abre: Panel de control → Sistema y seguridad → Firewall de Windows Defender → Configuración avanzada
+
+2️⃣ Segundo paso
+En el panel izquierdo: “Reglas de entrada” → clic derecho → “Nueva regla…”
+
+3️⃣ Tercer paso:
+Elige:
+  Tipo de regla: Personalizada
+  Programa: Todos los programas
+  Protocolo: ICMPv4
+  En “Dirección local”, marca Estas direcciones IP → agrega la IP del ESP8266 (ej. 192.168.1.50)
+  Acción: Permitir la conexión
+  Perfil: Privado (y opcionalmente “Dominio”, pero no “Público”)
+  Nombre: por ejemplo Permitir ping ESP8266
+
+4️⃣ Cuarto paso
+Aplica y guarda.

@@ -113,7 +113,8 @@ void verificarHosts() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
+  message += "\n\n⏱ Esperando 01:00 horas antes del siguiente reporte...\n";
+  message += "\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
 void obtenerInfoMilitar(String &message) {
@@ -184,7 +185,7 @@ void loop() {
   enviarCorreo();
   apagarWiFi();       // Apagar si quieres, pero solo después de enviar
 
-  Serial.println("⏱ Esperando 1 minuto antes del siguiente reporte...");
+  Serial.println("⏱ Esperando 01:00 horas antes del siguiente reporte...");
   // const unsigned long TIEMPO_ESPERA = 1000 * 60; // 1 minuto
   const unsigned long TIEMPO_ESPERA = 1000UL * 60 * 60; // 1 hora
   delay(TIEMPO_ESPERA);

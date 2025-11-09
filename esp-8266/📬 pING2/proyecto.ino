@@ -58,7 +58,7 @@ Host hosts[] = {
   {"192.168.1.6", "ANDROID-WIFI", false},
   {"192.168.1.7", "IPHONE-WIFI", false},
   {"192.168.1.8", "PORTATIL-WINDOWS-WIFI", false},
-  {"192.168.1.133", "TV-HABITACIÓN-WIFI", false}
+  {"192.168.1.128", "TV-HABITACIÓN-WIFI", false}
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 
@@ -113,7 +113,7 @@ void verificarHosts() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n\n⏱ Esperando 01:00 horas antes del siguiente reporte...\n";
+  message += "\n\n🕰️ Esperando 01:00 horas antes del siguiente reporte...\n";
   message += "\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 

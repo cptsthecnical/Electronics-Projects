@@ -58,6 +58,8 @@ Host hosts[] = {
   {"192.168.1.6", "ANDROID-WIFI", false},
   {"192.168.1.7", "IPHONE-WIFI", false},
   {"192.168.1.8", "PORTATIL-WINDOWS-WIFI", false},
+  {"192.168.1.9", "PLAYSTATION-4", false},
+  {"192.168.1.10", "MAC-MINI-WIFI", false},
   {"192.168.1.128", "TV-HABITACIÓN-WIFI", false}
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);

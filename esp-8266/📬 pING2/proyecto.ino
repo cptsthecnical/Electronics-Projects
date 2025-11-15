@@ -1,6 +1,9 @@
 #include <ESP8266WiFi.h>
 #include <ESP_Mail_Client.h>
 #include <ESP8266Ping.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 
 // =====================
 // CONFIGURACIÓN RED
@@ -60,7 +63,7 @@ Host hosts[] = {
   {"192.168.1.8", "PORTATIL-WINDOWS-WIFI", false},
   {"192.168.1.9", "PLAYSTATION-4", false},
   {"192.168.1.10", "MAC-MINI-WIFI", false},
-  {"192.168.1.128", "TV-HABITACIÓN-WIFI", false}
+  {"192.168.1.11", "TV-HABITACIÓN-WIFI", false}
 };
 const int numHosts = sizeof(hosts) / sizeof(hosts[0]);
 
@@ -115,7 +118,7 @@ void verificarHosts() {
 }
 
 void obtenerInfoESP(String &message) {
-  message += "\n\n🕰️ Esperando 01:00 horas antes del siguiente reporte...\n";
+  message += "\n\n🕰️ Esperando 02:00 horas antes del siguiente reporte...\n";
   message += "\n💾 Chip ID: " + String(ESP.getChipId()) + " · Flash: " + String(ESP.getSketchSize() / 1024) + "/" + String(ESP.getFlashChipRealSize() / 1024) + " KB · RAM libre: " + String(ESP.getFreeHeap() / 1024) + " KB · SDK: " + String(ESP.getSdkVersion()) + " · Tiempo activo: " + String(millis() / 60000.0, 1) + " min · RSSI WiFi: " + String(WiFi.RSSI()) + " dBm\n";
 }
 
@@ -126,7 +129,73 @@ void obtenerInfoMilitar(String &message) {
 
 void obtenerInfoMeteorologicos(String &message) {
   message += "\n🌩️ [ESTADÍSTICAS METEORLOGICAS]:\n";
-  message += "\nTrabajando para obtener estos datos...\n";
+
+  // URL: Usamos 'hourly' para pedir 'temperature_2m' y 'precipitation_probability'.
+  const char* API_URL = "https://api.open-meteo.com/v1/forecast?latitude=42.4627&longitude=-2.4451&hourly=temperature_2m,precipitation_probability&timezone=auto&forecast_days=1";
+  
+  const size_t JSON_CAPACITY = 4096; 
+  
+  WiFiClientSecure client;
+  HTTPClient http;
+  
+  Serial.print("📡 Conectando a la API (Hourly): ");
+  Serial.println(API_URL);
+  
+  client.setInsecure(); 
+  http.begin(client, API_URL); 
+
+  int httpCode = http.GET();
+
+  if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      
+      // 1. Deserializar el JSON
+      DynamicJsonDocument doc(JSON_CAPACITY);
+      DeserializationError error = deserializeJson(doc, payload.c_str());
+
+      if (error) {
+        Serial.print("⚠️ Error al parsear JSON: ");
+        Serial.println(error.f_str());
+        message += "\nError al procesar los datos JSON.";
+      } else {
+        // 2. Extracción de valores
+
+        // Objetos principales
+        JsonObject hourly = doc["hourly"];
+        JsonObject units = doc["hourly_units"];
+        
+        // --- VALORES DE TIEMPO Y TEMPERATURA ---
+        const char* current_time = hourly["time"][0] | "N/A";
+        float temperature_value = hourly["temperature_2m"][0] | 99.9;
+        int prob_lluvia_valor = hourly["precipitation_probability"][0] | 0;
+        
+        // --- VALORES DE INTERVALO ---
+        // ⭐️ CAMBIO: El modo 'hourly' asume 3600 segundos (1 hora)
+        // en el intervalo. Usamos el valor constante y solo extraemos la unidad.
+        const int interval_value = 3600; 
+        
+        // --- EXTRACCIÓN DE UNIDADES ---
+        const char* time_unit = units["time"] | "N/A";
+        const char* temperature_unit = units["temperature_2m"] | "N/A";
+        const char* prob_lluvia_unit = units["precipitation_probability"] | "N/A";
+        // La unidad de intervalo viene en el objeto root 'current_units' (no 'hourly_units')
+        // Si no está, asumimos "seconds".
+        const char* interval_unit = doc["current_units"]["interval"] | "seconds"; 
+        
+        // 3. Formatear la salida deseada:
+        message += "\nTiempo (Actual): " + String(current_time) + " " + String(time_unit);
+        message += "\nTemperatura_2m: " + String(temperature_value, 1) + " " + String(temperature_unit);
+        message += "\nProbabilidad_Lluvia: " + String(prob_lluvia_valor) + String(prob_lluvia_unit);
+        message += "\nIntervalo-del-calculo: " + String(interval_value) + " " + String(interval_unit) + "\n";
+
+        Serial.println("✅ Datos meteorológicos obtenidos y formateados.");
+      }
+    } else {
+      Serial.printf("⚠️ Error HTTP Code: %d\n", httpCode);
+      message += "\nError al obtener los datos (código: " + String(httpCode) + ")";
+    }
+
+  http.end(); // Cerrar conexión
 }
 
 void obtenerRiesgoApagon(String &message) {
@@ -193,8 +262,9 @@ void loop() {
   enviarCorreo();
   apagarWiFi();       // Apagar si quieres, pero solo después de enviar
 
-  Serial.println("⏱ Esperando 01:00 horas antes del siguiente reporte...");
+  Serial.println("⏱ Esperando 02:00 horas antes del siguiente reporte...");
   // const unsigned long TIEMPO_ESPERA = 1000 * 60; // 1 minuto
-  const unsigned long TIEMPO_ESPERA = 1000UL * 60 * 60; // 1 hora
+  const unsigned long TIEMPO_ESPERA = 2 * 1000UL * 60 * 60; // 2 horas
   delay(TIEMPO_ESPERA);
 }
+
